@@ -1,0 +1,28 @@
+name: Oracle reconciliation tests
+on: [push, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  reconciliation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    services:
+      database:
+        image: gvenzl/oracle-free:23-slim-faststart
+        env:
+          ORACLE_PASSWORD: local_ci_only
+          APP_USER: recon_demo
+          APP_USER_PASSWORD: recon_ci_only
+        options: >-
+          --health-cmd healthcheck.sh
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run SQL in the disposable demo schema
+        env:
+          DATABASE_CONTAINER: ${{ job.services.database.id }}
+        run: |
+          docker cp . "$DATABASE_CONTAINER:/tmp/recon"
+          docker exec -w /tmp/recon "$DATABASE_CONTAINER" sqlplus -L -S recon_demo/recon_ci_only@//localhost:1521/FREEPDB1 @run.sql
